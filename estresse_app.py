@@ -2,7 +2,58 @@
 
 import streamlit as st
 
-from app import _mostrar_estresse
+from app import _mostrar_estresse, calcular_estresse, relatorio_estresse
+
+
+DEMANDA_TESTE = [
+    "Frequentemente",
+    "Frequentemente",
+    "Às vezes",
+    "Raramente",
+    "Às vezes",
+]
+
+CONTROLE_TESTE = [
+    "Às vezes",
+    "Frequentemente",
+    "Frequentemente",
+    "Raramente",
+    "Às vezes",
+    "Raramente",
+]
+
+APOIO_TESTE = [
+    "Concordo mais que discordo",
+    "Concordo totalmente",
+    "Concordo mais que discordo",
+    "Concordo mais que discordo",
+    "Concordo totalmente",
+    "Concordo totalmente",
+]
+
+
+def carregar_cenario_teste() -> None:
+    """Preenche um cenário fictício e calcula o resultado automaticamente."""
+    st.session_state["nome_estresse"] = "Participante fictício"
+
+    for indice, resposta in enumerate(DEMANDA_TESTE):
+        st.session_state[f"demanda_{indice}"] = resposta
+    for indice, resposta in enumerate(CONTROLE_TESTE):
+        st.session_state[f"controle_{indice}"] = resposta
+    for indice, resposta in enumerate(APOIO_TESTE):
+        st.session_state[f"apoio_{indice}"] = resposta
+
+    demanda = [4, 4, 3, 2, 3]
+    controle = [3, 4, 4, 2, 3, 2]
+    apoio = [3, 4, 3, 3, 4, 4]
+    resultado = calcular_estresse(demanda, controle, apoio)
+
+    st.session_state["resultado_estresse"] = resultado
+    st.session_state["relatorio_estresse"] = relatorio_estresse(
+        "Participante fictício",
+        resultado,
+    )
+    st.session_state["cenario_teste_carregado"] = True
 
 
 st.set_page_config(
@@ -91,6 +142,17 @@ st.warning(
     "AMBIENTE DE TESTE — utilize somente dados fictícios. "
     "Os resultados servem para validar o funcionamento da calculadora."
 )
+st.button(
+    "Iniciar ambiente de teste",
+    on_click=carregar_cenario_teste,
+    type="primary",
+    use_container_width=True,
+)
+if st.session_state.get("cenario_teste_carregado"):
+    st.success(
+        "Cenário fictício carregado. As 17 respostas e a classificação "
+        "foram preenchidas automaticamente."
+    )
 st.write("Informe as respostas do questionário para receber as classificações automaticamente.")
 _mostrar_estresse()
 st.divider()
