@@ -1,5 +1,6 @@
 """Calculadora isolada da Escala de Estresse no Trabalho."""
 
+# Marcador de implantação para reinicialização do Streamlit Cloud.
 import streamlit as st
 
 from app import (
