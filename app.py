@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from dataclasses import dataclass
 from datetime import datetime
 
 import streamlit as st
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 
 FREQUENCIA = (
@@ -229,6 +242,146 @@ def relatorio_ipaq(
     )
 
 
+def relatorio_ipaq_pdf(
+    nome: str,
+    caminhada: Atividade,
+    moderada: Atividade,
+    vigorosa: Atividade,
+    r: ResultadoIPAQ,
+) -> bytes:
+    """Gera um relatório IPAQ em PDF pronto para download."""
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.7 * cm,
+        leftMargin=1.7 * cm,
+        topMargin=1.7 * cm,
+        bottomMargin=1.7 * cm,
+        title="Resultado IPAQ",
+        author="Calculadoras de Saúde do Trabalhador",
+    )
+
+    estilos = getSampleStyleSheet()
+    titulo = ParagraphStyle(
+        "TituloIPAQ",
+        parent=estilos["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor("#17324D"),
+        alignment=TA_CENTER,
+        spaceAfter=8,
+    )
+    subtitulo = ParagraphStyle(
+        "SubtituloIPAQ",
+        parent=estilos["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=15,
+        textColor=colors.HexColor("#17324D"),
+        spaceBefore=12,
+        spaceAfter=7,
+    )
+    corpo = ParagraphStyle(
+        "CorpoIPAQ",
+        parent=estilos["BodyText"],
+        fontName="Helvetica",
+        fontSize=9.5,
+        leading=13,
+        textColor=colors.HexColor("#263B50"),
+    )
+    classificacao = ParagraphStyle(
+        "ClassificacaoIPAQ",
+        parent=corpo,
+        fontName="Helvetica-Bold",
+        fontSize=16,
+        leading=20,
+        alignment=TA_CENTER,
+        textColor=colors.white,
+    )
+
+    identificacao = nome.strip() or "Não informada"
+    historia = [
+        Paragraph("Resultado - Nível de Atividade Física", titulo),
+        Paragraph("Questionário Internacional de Atividade Física - IPAQ", corpo),
+        Spacer(1, 10),
+        Table(
+            [
+                ["Data", f"{datetime.now():%d/%m/%Y %H:%M}"],
+                ["Identificação", identificacao],
+            ],
+            colWidths=[3.2 * cm, 13.2 * cm],
+            style=TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EAF1F6")),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#263B50")),
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD8E3")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]
+            ),
+        ),
+        Paragraph("Atividades informadas", subtitulo),
+        Table(
+            [
+                ["Atividade", "Dias/semana", "Min/sessão", "Min/semana"],
+                ["Caminhada", caminhada.dias, caminhada.minutos_sessao, caminhada.minutos_semana],
+                ["Moderada", moderada.dias, moderada.minutos_sessao, moderada.minutos_semana],
+                ["Vigorosa", vigorosa.dias, vigorosa.minutos_sessao, vigorosa.minutos_semana],
+                ["Total", r.frequencia_somada, "-", r.minutos_semana],
+            ],
+            colWidths=[6.1 * cm, 3.4 * cm, 3.4 * cm, 3.5 * cm],
+            style=TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#17324D")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EAF1F6")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD8E3")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]
+            ),
+        ),
+        Spacer(1, 16),
+        Table(
+            [[Paragraph(f"CLASSIFICAÇÃO IPAQ: {r.classificacao.upper()}", classificacao)]],
+            colWidths=[16.4 * cm],
+            style=TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#19705A")),
+                    ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#145846")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 12),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ]
+            ),
+        ),
+        Spacer(1, 10),
+        Paragraph(f"<b>Classificação reduzida:</b> {r.reduzida}", corpo),
+        Paragraph(f"<b>Critério alcançado:</b> {r.criterio}", corpo),
+        Spacer(1, 14),
+        Paragraph(
+            "Resultado calculado conforme a Classificação do Nível de Atividade Física "
+            "IPAQ (CELAFISCS, 2012). Esta ferramenta não substitui avaliação profissional.",
+            corpo,
+        ),
+    ]
+
+    documento.build(historia)
+    return buffer.getvalue()
+
+
 def _respostas_selectbox(
     questoes: tuple[str, ...],
     opcoes: tuple[str, ...],
@@ -339,6 +492,13 @@ def _mostrar_ipaq() -> None:
                 vigorosa,
                 resultado,
             )
+            st.session_state["relatorio_ipaq_pdf"] = relatorio_ipaq_pdf(
+                nome,
+                caminhada,
+                moderada,
+                vigorosa,
+                resultado,
+            )
 
     resultado = st.session_state.get("resultado_ipaq")
     if resultado:
@@ -350,10 +510,10 @@ def _mostrar_ipaq() -> None:
         coluna3.metric("Frequência somada", f"{resultado.frequencia_somada} dias")
         st.info(resultado.criterio)
         st.download_button(
-            "Baixar relatório",
-            st.session_state["relatorio_ipaq"],
-            file_name="resultado_ipaq.txt",
-            mime="text/plain",
+            "Baixar resultado em PDF",
+            st.session_state["relatorio_ipaq_pdf"],
+            file_name=f"resultado_ipaq_{datetime.now():%Y%m%d}.pdf",
+            mime="application/pdf",
             use_container_width=True,
         )
 
