@@ -87,6 +87,10 @@ st.markdown(
 )
 
 st.title("Calculadora de Estresse no Trabalho")
+st.warning(
+    "AMBIENTE DE TESTE — utilize somente dados fictícios. "
+    "Os resultados servem para validar o funcionamento da calculadora."
+)
 st.write("Informe as respostas do questionário para receber as classificações automaticamente.")
 _mostrar_estresse()
 st.divider()
