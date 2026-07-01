@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from app import _mostrar_estresse, calcular_estresse, relatorio_estresse
+from app import _mostrar_estresse, _mostrar_ipaq, calcular_estresse, relatorio_estresse
 
 
 DEMANDA_TESTE = [
@@ -57,7 +57,7 @@ def carregar_cenario_teste() -> None:
 
 
 st.set_page_config(
-    page_title="Calculadora de Estresse no Trabalho",
+    page_title="Calculadoras de Saúde do Trabalhador",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -137,25 +137,37 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Calculadora de Estresse no Trabalho")
-st.warning(
-    "AMBIENTE DE TESTE — utilize somente dados fictícios. "
-    "Os resultados servem para validar o funcionamento da calculadora."
-)
-st.button(
-    "Iniciar ambiente de teste",
-    on_click=carregar_cenario_teste,
-    type="primary",
-    use_container_width=True,
-)
-if st.session_state.get("cenario_teste_carregado"):
-    st.success(
-        "Cenário fictício carregado. As 17 respostas e a classificação "
-        "foram preenchidas automaticamente."
+st.title("Calculadoras de Saúde do Trabalhador")
+st.write("Informe as respostas dos questionários para receber as classificações automaticamente.")
+
+aba_estresse, aba_ipaq = st.tabs(("Estresse no trabalho", "Atividade física - IPAQ"))
+
+with aba_estresse:
+    st.warning(
+        "AMBIENTE DE TESTE — utilize somente dados fictícios. "
+        "Os resultados servem para validar o funcionamento da calculadora."
     )
-st.write("Informe as respostas do questionário para receber as classificações automaticamente.")
-_mostrar_estresse()
+    st.button(
+        "Iniciar ambiente de teste",
+        on_click=carregar_cenario_teste,
+        type="primary",
+        use_container_width=True,
+    )
+    if st.session_state.get("cenario_teste_carregado"):
+        st.success(
+            "Cenário fictício carregado. As 17 respostas e a classificação "
+            "foram preenchidas automaticamente."
+        )
+    _mostrar_estresse()
+
+with aba_ipaq:
+    st.info(
+        "Preencha os dias por semana e os minutos por sessão. "
+        "O resultado poderá ser baixado em PDF."
+    )
+    _mostrar_ipaq()
+
 st.divider()
 st.caption(
-    "A ferramenta não armazena as respostas e não substitui avaliação profissional."
+    "As ferramentas não armazenam as respostas e não substituem avaliação profissional."
 )
