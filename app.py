@@ -9,12 +9,13 @@ from datetime import datetime
 import streamlit as st
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.graphics.shapes import Circle, Drawing, Line, Rect, String
 from reportlab.platypus import (
     Paragraph,
+    PageBreak,
     SimpleDocTemplate,
     Spacer,
     Table,
@@ -611,6 +612,241 @@ def _grafico_ipaq(
     return desenho
 
 
+def _grafico_ipaq_coletivo(participantes: list[dict[str, object]]) -> Drawing:
+    """Compara frequência e duração dos participantes em um único gráfico."""
+    desenho = Drawing(740, 430)
+    cores = (
+        colors.HexColor("#4C90C0"),
+        colors.HexColor("#44A177"),
+        colors.HexColor("#D97A45"),
+    )
+    atividades = ("Caminhada", "Moderada", "Vigorosa")
+    n = max(1, len(participantes))
+    x0, largura = 58, 650
+    largura_grupo = largura / n
+
+    desenho.add(
+        String(
+            58,
+            408,
+            "Frequência semanal por atividade",
+            fontName="Helvetica-Bold",
+            fontSize=12,
+            fillColor=colors.HexColor("#17324D"),
+        )
+    )
+    base_frequencia, altura_frequencia = 248, 125
+    desenho.add(Line(x0, base_frequencia, x0 + largura, base_frequencia, strokeColor=colors.HexColor("#526779")))
+    desenho.add(Line(x0, base_frequencia, x0, base_frequencia + altura_frequencia, strokeColor=colors.HexColor("#526779")))
+    for valor in (0, 2, 4, 6, 7):
+        y = base_frequencia + (valor / 7) * altura_frequencia
+        desenho.add(Line(x0 - 3, y, x0 + largura, y, strokeColor=colors.HexColor("#DDE5EE"), strokeWidth=0.4))
+        desenho.add(String(x0 - 18, y - 2, str(valor), fontSize=7, fillColor=colors.HexColor("#526779")))
+
+    barra = min(20, max(8, (largura_grupo - 18) / 3))
+    for indice, participante in enumerate(participantes):
+        centro = x0 + indice * largura_grupo + largura_grupo / 2
+        frequencias = (
+            int(participante["caminhada_dias"]),
+            int(participante["moderada_dias"]),
+            int(participante["vigorosa_dias"]),
+        )
+        inicio = centro - (3 * barra + 4) / 2
+        for atividade_indice, (valor, cor) in enumerate(zip(frequencias, cores)):
+            bx = inicio + atividade_indice * (barra + 2)
+            bh = (valor / 7) * altura_frequencia
+            desenho.add(Rect(bx, base_frequencia, barra, bh, fillColor=cor, strokeColor=None))
+            desenho.add(String(bx + barra / 2 - 2, base_frequencia + bh + 4, str(valor), fontSize=6.5))
+        identificacao = str(participante["identificacao"])[:14]
+        desenho.add(String(centro - min(30, len(identificacao) * 2.7), base_frequencia - 14, identificacao, fontSize=6.5))
+
+    totais = [int(p["minutos_semana"]) for p in participantes]
+    maximo_minutos = max(150, max(totais, default=0)) * 1.12
+    base_duracao, altura_duracao = 45, 135
+    desenho.add(
+        String(
+            58,
+            215,
+            "Duração semanal por participante",
+            fontName="Helvetica-Bold",
+            fontSize=12,
+            fillColor=colors.HexColor("#17324D"),
+        )
+    )
+    desenho.add(Line(x0, base_duracao, x0 + largura, base_duracao, strokeColor=colors.HexColor("#526779")))
+    desenho.add(Line(x0, base_duracao, x0, base_duracao + altura_duracao, strokeColor=colors.HexColor("#526779")))
+    referencia_y = base_duracao + (150 / maximo_minutos) * altura_duracao
+    desenho.add(
+        Line(
+            x0,
+            referencia_y,
+            x0 + largura,
+            referencia_y,
+            strokeColor=colors.HexColor("#C54B3C"),
+            strokeWidth=1,
+            strokeDashArray=[4, 3],
+        )
+    )
+
+    largura_empilhada = min(42, max(18, largura_grupo * 0.5))
+    for indice, participante in enumerate(participantes):
+        centro = x0 + indice * largura_grupo + largura_grupo / 2
+        bx = centro - largura_empilhada / 2
+        minutos = (
+            int(participante["caminhada_dias"]) * int(participante["caminhada_minutos"]),
+            int(participante["moderada_dias"]) * int(participante["moderada_minutos"]),
+            int(participante["vigorosa_dias"]) * int(participante["vigorosa_minutos"]),
+        )
+        acumulado = base_duracao
+        for valor, cor in zip(minutos, cores):
+            bh = (valor / maximo_minutos) * altura_duracao
+            desenho.add(Rect(bx, acumulado, largura_empilhada, bh, fillColor=cor, strokeColor=colors.white, strokeWidth=0.4))
+            acumulado += bh
+        total = sum(minutos)
+        desenho.add(String(centro - 8, acumulado + 5, str(total), fontName="Helvetica-Bold", fontSize=7))
+        identificacao = str(participante["identificacao"])[:14]
+        desenho.add(String(centro - min(30, len(identificacao) * 2.7), base_duracao - 14, identificacao, fontSize=6.5))
+
+    legenda_x = 470
+    for indice, (atividade, cor) in enumerate(zip(atividades, cores)):
+        lx = legenda_x + indice * 82
+        desenho.add(Rect(lx, 404, 9, 9, fillColor=cor, strokeColor=None))
+        desenho.add(String(lx + 13, 405, atividade, fontSize=7, fillColor=colors.HexColor("#526779")))
+    desenho.add(String(12, 300, "Dias/semana", fontSize=7, fillColor=colors.HexColor("#526779"), angle=90))
+    desenho.add(String(12, 92, "Minutos/semana", fontSize=7, fillColor=colors.HexColor("#526779"), angle=90))
+    return desenho
+
+
+def relatorio_ipaq_coletivo_pdf(participantes: list[dict[str, object]]) -> bytes:
+    """Gera tabela e gráficos consolidados para até seis participantes."""
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+        title="Tabela coletiva de resultados IPAQ",
+        author="Calculadoras de Saúde do Trabalhador",
+    )
+    estilos = getSampleStyleSheet()
+    titulo = ParagraphStyle(
+        "TituloIPAQColetivo",
+        parent=estilos["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor("#17324D"),
+        alignment=TA_CENTER,
+        spaceAfter=8,
+    )
+    corpo = ParagraphStyle(
+        "CorpoIPAQColetivo",
+        parent=estilos["BodyText"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#263B50"),
+    )
+    celula = ParagraphStyle(
+        "CelulaIPAQColetivo",
+        parent=corpo,
+        fontSize=7,
+        leading=8.5,
+    )
+
+    dados = [
+        ["Indivíduo", "Caminhada", "", "Moderada", "", "Vigorosa", "", "Totais", "", "Classificação", "Grupo reduzido"],
+        ["", "F", "D", "F", "D", "F", "D", "F", "Min", "", ""],
+    ]
+    for participante in participantes:
+        dados.append(
+            [
+                Paragraph(str(participante["identificacao"]), celula),
+                participante["caminhada_dias"],
+                participante["caminhada_minutos"],
+                participante["moderada_dias"],
+                participante["moderada_minutos"],
+                participante["vigorosa_dias"],
+                participante["vigorosa_minutos"],
+                participante["frequencia_somada"],
+                participante["minutos_semana"],
+                Paragraph(str(participante["classificacao"]), celula),
+                Paragraph(str(participante["reduzida"]), celula),
+            ]
+        )
+
+    tabela = Table(
+        dados,
+        colWidths=[
+            3.2 * cm,
+            1.2 * cm,
+            1.4 * cm,
+            1.2 * cm,
+            1.4 * cm,
+            1.2 * cm,
+            1.4 * cm,
+            1.2 * cm,
+            1.5 * cm,
+            3.0 * cm,
+            4.3 * cm,
+        ],
+        repeatRows=2,
+        style=TableStyle(
+            [
+                ("SPAN", (0, 0), (0, 1)),
+                ("SPAN", (1, 0), (2, 0)),
+                ("SPAN", (3, 0), (4, 0)),
+                ("SPAN", (5, 0), (6, 0)),
+                ("SPAN", (7, 0), (8, 0)),
+                ("SPAN", (9, 0), (9, 1)),
+                ("SPAN", (10, 0), (10, 1)),
+                ("BACKGROUND", (0, 0), (-1, 1), colors.HexColor("#17324D")),
+                ("TEXTCOLOR", (0, 0), (-1, 1), colors.white),
+                ("FONTNAME", (0, 0), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 1), 7.5),
+                ("ALIGN", (1, 0), (8, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD8E3")),
+                ("ROWBACKGROUNDS", (0, 2), (-1, -1), [colors.white, colors.HexColor("#F4F7F9")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        ),
+    )
+
+    historia = [
+        Paragraph("Resultados coletivos - IPAQ", titulo),
+        Paragraph(
+            f"Data: {datetime.now():%d/%m/%Y %H:%M} | Participantes cadastrados: {len(participantes)}",
+            corpo,
+        ),
+        Spacer(1, 12),
+        tabela,
+        Spacer(1, 10),
+        Paragraph(
+            "<b>Legenda:</b> F = frequência em dias/semana; D = duração em minutos/sessão. "
+            "As classificações são calculadas individualmente conforme o manual IPAQ.",
+            corpo,
+        ),
+        PageBreak(),
+        Paragraph("Gráficos comparativos", titulo),
+        _grafico_ipaq_coletivo(participantes),
+        Paragraph(
+            "A linha de 150 minutos representa apenas o critério baseado na soma das atividades; "
+            "os demais critérios de Ativo e Muito ativo também consideram frequência, intensidade e duração por sessão.",
+            corpo,
+        ),
+        Paragraph(
+            "Relatório coletivo de apoio à análise. Não substitui avaliação profissional.",
+            corpo,
+        ),
+    ]
+    documento.build(historia)
+    return buffer.getvalue()
+
+
 def _respostas_selectbox(
     questoes: tuple[str, ...],
     opcoes: tuple[str, ...],
@@ -698,51 +934,174 @@ def _campo_atividade(titulo: str, chave: str) -> Atividade:
 
 def _mostrar_ipaq() -> None:
     st.subheader("Nível de Atividade Física - IPAQ")
-    st.caption("Considere apenas atividades realizadas por pelo menos 10 minutos contínuos.")
+    st.caption(
+        "Cadastre até seis indivíduos. Considere apenas atividades realizadas "
+        "por pelo menos 10 minutos contínuos."
+    )
+    participantes = st.session_state.setdefault("participantes_ipaq", [])
+    st.progress(len(participantes) / 6, text=f"Participantes cadastrados: {len(participantes)}/6")
+
     with st.form("form_ipaq"):
-        nome = st.text_input("Identificação (opcional)", key="nome_ipaq")
+        nome = st.text_input(
+            "Identificação",
+            key="nome_ipaq",
+            placeholder=f"Indivíduo {len(participantes) + 1}",
+        )
         caminhada = _campo_atividade("Caminhada", "caminhada")
         st.divider()
         moderada = _campo_atividade("Atividade moderada", "moderada")
         st.divider()
         vigorosa = _campo_atividade("Atividade vigorosa", "vigorosa")
-        enviado = st.form_submit_button("Calcular classificação", use_container_width=True)
+        enviado = st.form_submit_button(
+            "Adicionar indivíduo à tabela",
+            use_container_width=True,
+            disabled=len(participantes) >= 6,
+        )
 
     if enviado:
-        try:
-            resultado = calcular_ipaq(caminhada, moderada, vigorosa)
-        except ValueError as erro:
-            st.error(str(erro))
+        if len(participantes) >= 6:
+            st.warning("A tabela já contém os seis indivíduos previstos.")
         else:
-            st.session_state["resultado_ipaq"] = resultado
-            st.session_state["relatorio_ipaq"] = relatorio_ipaq(
-                nome,
-                caminhada,
-                moderada,
-                vigorosa,
-                resultado,
+            try:
+                resultado = calcular_ipaq(caminhada, moderada, vigorosa)
+            except ValueError as erro:
+                st.error(str(erro))
+            else:
+                identificacao = nome.strip() or f"Indivíduo {len(participantes) + 1}"
+                participantes.append(
+                    {
+                        "identificacao": identificacao,
+                        "caminhada_dias": caminhada.dias,
+                        "caminhada_minutos": caminhada.minutos_sessao,
+                        "moderada_dias": moderada.dias,
+                        "moderada_minutos": moderada.minutos_sessao,
+                        "vigorosa_dias": vigorosa.dias,
+                        "vigorosa_minutos": vigorosa.minutos_sessao,
+                        "frequencia_somada": resultado.frequencia_somada,
+                        "minutos_semana": resultado.minutos_semana,
+                        "classificacao": resultado.classificacao,
+                        "reduzida": resultado.reduzida,
+                        "criterio": resultado.criterio,
+                    }
+                )
+                st.success(
+                    f"{identificacao} adicionado: {resultado.classificacao}. "
+                    "Altere os campos para cadastrar o próximo indivíduo."
+                )
+
+    if participantes:
+        st.markdown('<div class="resultado-titulo">Tabela coletiva</div>', unsafe_allow_html=True)
+        linhas_tabela = [
+            {
+                "Indivíduo": p["identificacao"],
+                "Caminhada F": p["caminhada_dias"],
+                "Caminhada D": p["caminhada_minutos"],
+                "Moderada F": p["moderada_dias"],
+                "Moderada D": p["moderada_minutos"],
+                "Vigorosa F": p["vigorosa_dias"],
+                "Vigorosa D": p["vigorosa_minutos"],
+                "Total (min/sem)": p["minutos_semana"],
+                "Classificação": p["classificacao"],
+            }
+            for p in participantes
+        ]
+        st.dataframe(linhas_tabela, use_container_width=True, hide_index=True)
+
+        frequencia_grafico = []
+        duracao_grafico = []
+        for participante in participantes:
+            for atividade, prefixo in (
+                ("Caminhada", "caminhada"),
+                ("Moderada", "moderada"),
+                ("Vigorosa", "vigorosa"),
+            ):
+                frequencia_grafico.append(
+                    {
+                        "Indivíduo": participante["identificacao"],
+                        "Atividade": atividade,
+                        "Dias": participante[f"{prefixo}_dias"],
+                    }
+                )
+                duracao_grafico.append(
+                    {
+                        "Indivíduo": participante["identificacao"],
+                        "Atividade": atividade,
+                        "Minutos": (
+                            int(participante[f"{prefixo}_dias"])
+                            * int(participante[f"{prefixo}_minutos"])
+                        ),
+                    }
+                )
+
+        coluna_grafico1, coluna_grafico2 = st.columns(2)
+        with coluna_grafico1:
+            st.markdown("**Frequência semanal**")
+            st.vega_lite_chart(
+                frequencia_grafico,
+                {
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "Indivíduo", "type": "nominal", "title": None},
+                        "xOffset": {"field": "Atividade"},
+                        "y": {
+                            "field": "Dias",
+                            "type": "quantitative",
+                            "title": "Dias/semana",
+                            "scale": {"domain": [0, 7]},
+                        },
+                        "color": {"field": "Atividade", "type": "nominal"},
+                        "tooltip": [
+                            {"field": "Indivíduo"},
+                            {"field": "Atividade"},
+                            {"field": "Dias"},
+                        ],
+                    },
+                },
+                use_container_width=True,
             )
-            st.session_state["relatorio_ipaq_pdf"] = relatorio_ipaq_pdf(
-                nome,
-                caminhada,
-                moderada,
-                vigorosa,
-                resultado,
+        with coluna_grafico2:
+            st.markdown("**Duração semanal**")
+            st.vega_lite_chart(
+                duracao_grafico,
+                {
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "Indivíduo", "type": "nominal", "title": None},
+                        "xOffset": {"field": "Atividade"},
+                        "y": {
+                            "field": "Minutos",
+                            "type": "quantitative",
+                            "title": "Minutos/semana",
+                        },
+                        "color": {"field": "Atividade", "type": "nominal"},
+                        "tooltip": [
+                            {"field": "Indivíduo"},
+                            {"field": "Atividade"},
+                            {"field": "Minutos"},
+                        ],
+                    },
+                },
+                use_container_width=True,
             )
 
-    resultado = st.session_state.get("resultado_ipaq")
-    if resultado:
-        st.markdown('<div class="resultado-titulo">Resultado</div>', unsafe_allow_html=True)
-        st.success(f"Classificação IPAQ: **{resultado.classificacao}**")
-        coluna1, coluna2, coluna3 = st.columns(3)
-        coluna1.metric("Grupo reduzido", resultado.reduzida)
-        coluna2.metric("Tempo semanal", f"{resultado.minutos_semana} min")
-        coluna3.metric("Frequência somada", f"{resultado.frequencia_somada} dias")
-        st.info(resultado.criterio)
+        coluna_acao1, coluna_acao2 = st.columns(2)
+        if coluna_acao1.button(
+            "Remover último indivíduo",
+            use_container_width=True,
+        ):
+            removido = participantes.pop()
+            st.toast(f"{removido['identificacao']} removido.")
+        if coluna_acao2.button(
+            "Limpar tabela",
+            use_container_width=True,
+        ):
+            participantes.clear()
+            st.toast("Tabela IPAQ limpa.")
+
         st.download_button(
-            "Baixar resultado em PDF",
-            st.session_state["relatorio_ipaq_pdf"],
-            file_name=f"resultado_ipaq_{datetime.now():%Y%m%d}.pdf",
+            "Baixar tabela e gráficos em PDF",
+            relatorio_ipaq_coletivo_pdf(participantes),
+            file_name=f"resultados_coletivos_ipaq_{datetime.now():%Y%m%d}.pdf",
             mime="application/pdf",
             use_container_width=True,
         )
