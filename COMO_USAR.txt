@@ -1,0 +1,24 @@
+CLASSIFICADOR DA ESCALA DE ESTRESSE NO TRABALHO
+
+1. Abra o arquivo "classificador_estresse_trabalho.py".
+2. Se o Windows perguntar com qual programa abrir, escolha Python.
+3. Preencha as 17 respostas.
+4. Clique em "Calcular classificação".
+5. Se desejar, clique em "Salvar resultado" para gerar um arquivo de texto.
+
+O programa calcula:
+- média de demanda (5 questões);
+- média de controle (6 questões);
+- média de apoio social (6 questões);
+- classificação combinada: alto desgaste, trabalho ativo, trabalho passivo
+  ou baixo desgaste.
+
+As questões sobre tempo suficiente e repetição de tarefas recebem
+automaticamente a pontuação inversa.
+
+Critério usado no documento:
+- média menor que 2 = baixa;
+- média maior ou igual a 2 = alta.
+
+Observação: a ferramenta automatiza a classificação da escala e não realiza
+diagnóstico clínico.
