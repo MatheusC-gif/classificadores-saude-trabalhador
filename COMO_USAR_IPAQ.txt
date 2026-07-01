@@ -1,0 +1,25 @@
+CLASSIFICADOR DO NÍVEL DE ATIVIDADE FÍSICA - IPAQ
+
+1. Abra o arquivo "classificador_ipaq.py" com o Python.
+2. Informe, para caminhada, atividade moderada e atividade vigorosa:
+   - quantos dias por semana;
+   - quantos minutos por sessão.
+3. Considere apenas atividades realizadas por pelo menos 10 minutos contínuos.
+4. Clique em "Calcular classificação".
+5. Se desejar, clique em "Salvar resultado".
+
+O programa informa:
+- Inativo;
+- Irregularmente ativo;
+- Ativo;
+- Muito ativo.
+
+Também informa a classificação reduzida:
+- Sedentário ou insuficientemente ativo;
+- Suficientemente ativo.
+
+As regras foram extraídas do documento:
+"Classificação do Nível de Atividade Física IPAQ" - CELAFISCS, 2012.
+
+A ferramenta automatiza a classificação do protocolo e não substitui
+avaliação profissional.
